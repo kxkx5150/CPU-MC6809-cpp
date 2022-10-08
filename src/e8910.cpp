@@ -33,12 +33,13 @@
 #define AY_PORTB    (15)
 
 
-
-extern VECX   *vecx;
-extern AY8910 *psg;
+extern PC *g_pc;
 
 
-
+AY8910::AY8910(PC *_pc)
+{
+    pc = _pc;
+}
 void AY8910::e8910_write(int r, int v)
 {
     int old;
@@ -338,13 +339,13 @@ void AY8910::e8910_build_mixer_table()
 }
 void sound_cb(void *userdata, uint8_t *stream, int length)
 {
-    psg->e8910_callback(userdata, stream, length);
+    g_pc->psg->e8910_callback(userdata, stream, length);
 }
 void AY8910::e8910_init_sound()
 {
     SDL_AudioSpec reqSpec;
     SDL_AudioSpec givenSpec;
-    Regs = vecx->snd_regs;
+    Regs = pc->vecx->snd_regs;
 
     RNG     = 1;
     OutputA = 0;

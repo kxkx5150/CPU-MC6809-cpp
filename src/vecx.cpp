@@ -4,11 +4,10 @@
 #include "e8910.h"
 
 
-extern void    osint_render(void);
-extern CPU    *cpu;
-extern AY8910 *psg;
-
-
+VECX::VECX(PC *_pc)
+{
+    pc = _pc;
+}
 void VECX::snd_update(void)
 {
     switch (via_orb & 0x18) {
@@ -19,7 +18,7 @@ void VECX::snd_update(void)
         case 0x10:
             if (snd_select != 14) {
                 snd_regs[snd_select] = via_ora;
-                psg->e8910_write(snd_select, via_ora);
+                pc->psg->e8910_write(snd_select, via_ora);
             }
             break;
         case 0x18:
@@ -274,11 +273,11 @@ void VECX::vecx_reset(void)
     }
     for (r = 0; r < 16; r++) {
         snd_regs[r] = 0;
-        psg->e8910_write(r, 0);
+        pc->psg->e8910_write(r, 0);
     }
 
     snd_regs[14] = 0xff;
-    psg->e8910_write(14, 0xff);
+    pc->psg->e8910_write(14, 0xff);
 
     snd_select      = 0;
     via_ora         = 0;
@@ -328,7 +327,7 @@ void VECX::vecx_reset(void)
     vectors_erse = vectors_set + VECTOR_CNT;
     fcycles      = FCYCLES_INIT;
 
-    cpu->e6809_reset();
+    pc->cpu->e6809_reset();
 }
 void VECX::via_sstep0(void)
 {
@@ -524,7 +523,7 @@ void VECX::vecx_emu(long cycles)
 {
     uint64_t c, icycles;
     while (cycles > 0) {
-        icycles = cpu->e6809_sstep(via_ifr & 0x80, 0);
+        icycles = pc->cpu->e6809_sstep(via_ifr & 0x80, 0);
         for (c = 0; c < icycles; c++) {
             via_sstep0();
             alg_sstep();
@@ -535,7 +534,7 @@ void VECX::vecx_emu(long cycles)
         if (fcycles < 0) {
             vector_t *tmp;
             fcycles += FCYCLES_INIT;
-            osint_render();
+            pc->osint_render();
             vector_erse_cnt = vector_draw_cnt;
             vector_draw_cnt = 0;
             tmp             = vectors_erse;

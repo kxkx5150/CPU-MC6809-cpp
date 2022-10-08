@@ -3,9 +3,11 @@
 #include "vecx.h"
 
 
-extern VECX *vecx;
 
-
+CPU::CPU(PC *_pc)
+{
+    pc = _pc;
+}
 uint64_t CPU::get_cc(uint64_t flag)
 {
     return (reg_cc / flag) & 1;
@@ -66,11 +68,11 @@ void CPU::set_reg_d(uint64_t value)
 }
 uint64_t CPU::read8(uint64_t address)
 {
-    return vecx->_read8(address & 0xffff);
+    return pc->vecx->_read8(address & 0xffff);
 }
 void CPU::write8(uint64_t address, uint64_t data)
 {
-    vecx->_write8(address & 0xffff, (uint8_t)data);
+    pc->vecx->_write8(address & 0xffff, (uint8_t)data);
 }
 uint64_t CPU::read16(uint64_t address)
 {

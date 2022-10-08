@@ -1,6 +1,7 @@
 #ifndef __VECX_H
 #define __VECX_H
 #include <cstdint>
+#include "PC.h"
 
 
 class VECX {
@@ -29,6 +30,8 @@ class VECX {
     };
 
   public:
+    PC *pc = nullptr;
+
     uint8_t  rom[8192];
     uint8_t  cart[32768];
     uint64_t snd_regs[16];
@@ -97,6 +100,8 @@ class VECX {
     long      fcycles;
 
   public:
+    VECX(PC *_pc);
+
     void    snd_update(void);
     void    alg_update(void);
     void    int_update(void);

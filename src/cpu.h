@@ -1,10 +1,13 @@
 #ifndef __E6809_H
 #define __E6809_H
+#include "PC.h"
 #include <cstdint>
 
 
 class CPU {
   public:
+    PC *pc = nullptr;
+
     enum
     {
         FLAG_E     = 0x80,
@@ -33,6 +36,8 @@ class CPU {
     uint64_t *rptr_xyus[4] = {&reg_x, &reg_y, &reg_u, &reg_s};
 
   public:
+    CPU(PC *_pc);
+
     uint64_t get_cc(uint64_t flag);
     void     set_cc(uint64_t flag, uint64_t value);
 
