@@ -38,7 +38,10 @@ void osint_render(void)
 void resize(int width, int height)
 {
     long sclx, scly;
-    if (SDL_CreateWindowAndRenderer(width, height, SDL_WINDOW_RESIZABLE, &screen, &renderer)) {
+
+    if (screen)
+        SDL_DestroyWindow(screen);
+    if (SDL_CreateWindowAndRenderer(width, height, SDL_WINDOW_OPENGL, &screen, &renderer)) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "error: %s", SDL_GetError());
     }
     overlay_original = SDL_GetWindowSurface(screen);
@@ -59,8 +62,8 @@ static void readevents()
             case SDL_QUIT:
                 exit(EXIT_SUCCESS);
                 break;
-            // case SDL_VIDEORESIZE:
-            //     resize(e.resize.w, e.resize.h);
+            // case SDL_WINDOWEVENT_RESIZED:
+            //     resize(e.window.data1, e.window.data2);
             //     break;
             case SDL_KEYDOWN:
                 switch (e.key.keysym.sym) {
