@@ -1,4 +1,3 @@
-
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL2_gfxPrimitives.h>
@@ -8,19 +7,20 @@
 
 #define EMU_TIMER 20
 
-static SDL_Window   *screen           = NULL;
-static SDL_Renderer *renderer         = NULL;
-static SDL_Surface  *overlay_original = NULL;
-static SDL_Surface  *overlay          = NULL;
+SDL_Window   *screen           = NULL;
+SDL_Renderer *renderer         = NULL;
+SDL_Surface  *overlay_original = NULL;
+SDL_Surface  *overlay          = NULL;
 
-static long  scl_factor;
-static long  offx;
-static long  offy;
-static char *cartfilename = NULL;
+long  scl_factor;
+long  offx;
+long  offy;
+char *cartfilename = NULL;
 
 
-CPU  *cpu  = new CPU();
-VECX *vecx = new VECX();
+CPU    *cpu  = new CPU();
+VECX   *vecx = new VECX();
+AY8910 *psg  = new AY8910();
 
 
 void osint_render(void)
@@ -37,7 +37,6 @@ void osint_render(void)
 
     SDL_RenderPresent(renderer);
 }
-
 void resize(int width, int height)
 {
     long sclx, scly;
@@ -57,7 +56,7 @@ void resize(int width, int height)
     offx = (width - vecx->ALG_MAX_X / scl_factor) / 2;
     offy = (height - vecx->ALG_MAX_Y / scl_factor) / 2;
 }
-static void readevents()
+void readevents()
 {
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
@@ -145,7 +144,7 @@ void load_overlay(const char *filename)
         fprintf(stderr, "IMG_Load: %s\n", IMG_GetError());
     }
 }
-static void init()
+void load_rom()
 {
     FILE *f;
     if (!(f = fopen("rom.dat", "rb"))) {
@@ -189,7 +188,7 @@ void osint_emuloop()
         }
     }
 }
-int main(int argc, char *argv[])
+int init(int argc, char *argv[])
 {
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
     resize(330 * 3 / 2, 410 * 3 / 2);
@@ -197,11 +196,15 @@ int main(int argc, char *argv[])
     if (argc > 1)
         cartfilename = argv[1];
 
-    init();
-    e8910_init_sound();
+    load_rom();
+    // psg-> e8910_init_sound();
     osint_emuloop();
 
-    e8910_done_sound();
+    psg->e8910_done_sound();
     SDL_Quit();
     return 0;
+}
+int main(int argc, char *argv[])
+{
+    init(argc, argv);
 }

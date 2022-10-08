@@ -4,9 +4,9 @@
 #include "e8910.h"
 
 
-extern CPU *cpu;
-extern void osint_render(void);
-
+extern void    osint_render(void);
+extern CPU    *cpu;
+extern AY8910 *psg;
 
 
 void VECX::snd_update(void)
@@ -19,7 +19,7 @@ void VECX::snd_update(void)
         case 0x10:
             if (snd_select != 14) {
                 snd_regs[snd_select] = via_ora;
-                e8910_write(snd_select, via_ora);
+                psg->e8910_write(snd_select, via_ora);
             }
             break;
         case 0x18:
@@ -274,11 +274,11 @@ void VECX::vecx_reset(void)
     }
     for (r = 0; r < 16; r++) {
         snd_regs[r] = 0;
-        e8910_write(r, 0);
+        psg->e8910_write(r, 0);
     }
 
     snd_regs[14] = 0xff;
-    e8910_write(14, 0xff);
+    psg->e8910_write(14, 0xff);
 
     snd_select      = 0;
     via_ora         = 0;

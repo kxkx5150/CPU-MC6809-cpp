@@ -3,8 +3,6 @@
 #include <cstdint>
 
 
-
-
 class VECX {
   public:
     typedef struct vector_type
