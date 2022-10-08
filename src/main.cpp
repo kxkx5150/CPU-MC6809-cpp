@@ -2,6 +2,7 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL2_gfxPrimitives.h>
+#include "cpu.h"
 #include "e8910.h"
 #include "vecx.h"
 
@@ -17,6 +18,8 @@ static long  offx;
 static long  offy;
 static char *cartfilename = NULL;
 
+
+CPU *cpu = new CPU();
 
 void osint_render(void)
 {

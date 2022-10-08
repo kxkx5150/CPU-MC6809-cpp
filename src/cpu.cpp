@@ -2,45 +2,18 @@
 #include "cpu.h"
 #include "vecx.h"
 
-enum
-{
-    FLAG_E     = 0x80,
-    FLAG_F     = 0x40,
-    FLAG_H     = 0x20,
-    FLAG_I     = 0x10,
-    FLAG_N     = 0x08,
-    FLAG_Z     = 0x04,
-    FLAG_V     = 0x02,
-    FLAG_C     = 0x01,
-    IRQ_NORMAL = 0,
-    IRQ_SYNC   = 1,
-    IRQ_CWAI   = 2
-};
-
-static uint64_t  reg_x;
-static uint64_t  reg_y;
-static uint64_t  reg_u;
-static uint64_t  reg_s;
-static uint64_t  reg_pc;
-static uint64_t  reg_a;
-static uint64_t  reg_b;
-static uint64_t  reg_dp;
-static uint64_t  reg_cc;
-static uint64_t  irq_status;
-static uint64_t *rptr_xyus[4] = {&reg_x, &reg_y, &reg_u, &reg_s};
 
 
-
-static uint64_t get_cc(uint64_t flag)
+uint64_t CPU::get_cc(uint64_t flag)
 {
     return (reg_cc / flag) & 1;
 }
-static void set_cc(uint64_t flag, uint64_t value)
+void CPU::set_cc(uint64_t flag, uint64_t value)
 {
     reg_cc &= ~flag;
     reg_cc |= value * flag;
 }
-static uint64_t test_c(uint64_t i0, uint64_t i1, uint64_t r, uint64_t sub)
+uint64_t CPU::test_c(uint64_t i0, uint64_t i1, uint64_t r, uint64_t sub)
 {
     uint64_t flag;
     flag = (i0 | i1) & ~r;
@@ -49,11 +22,11 @@ static uint64_t test_c(uint64_t i0, uint64_t i1, uint64_t r, uint64_t sub)
     flag ^= sub;
     return flag;
 }
-static uint64_t test_n(uint64_t r)
+uint64_t CPU::test_n(uint64_t r)
 {
     return (r >> 7) & 1;
 }
-static uint64_t test_z8(uint64_t r)
+uint64_t CPU::test_z8(uint64_t r)
 {
     uint64_t flag;
     flag = ~r;
@@ -62,7 +35,7 @@ static uint64_t test_z8(uint64_t r)
     flag = (flag >> 1) & (flag & 0x1);
     return flag;
 }
-static uint64_t test_z16(uint64_t r)
+uint64_t CPU::test_z16(uint64_t r)
 {
     uint64_t flag;
     flag = ~r;
@@ -72,7 +45,7 @@ static uint64_t test_z16(uint64_t r)
     flag = (flag >> 1) & (flag & 0x1);
     return flag;
 }
-static uint64_t test_v(uint64_t i0, uint64_t i1, uint64_t r)
+uint64_t CPU::test_v(uint64_t i0, uint64_t i1, uint64_t r)
 {
     uint64_t flag;
     flag = ~(i0 ^ i1);
@@ -80,86 +53,86 @@ static uint64_t test_v(uint64_t i0, uint64_t i1, uint64_t r)
     flag = (flag >> 7) & 1;
     return flag;
 }
-static uint64_t get_reg_d(void)
+uint64_t CPU::get_reg_d(void)
 {
     return (reg_a << 8) | (reg_b & 0xff);
 }
-static void set_reg_d(uint64_t value)
+void CPU::set_reg_d(uint64_t value)
 {
     reg_a = value >> 8;
     reg_b = value;
 }
-static uint64_t read8(uint64_t address)
+uint64_t CPU::read8(uint64_t address)
 {
     return _read8(address & 0xffff);
 }
-static void write8(uint64_t address, uint64_t data)
+void CPU::write8(uint64_t address, uint64_t data)
 {
     _write8(address & 0xffff, (unsigned char)data);
 }
-static uint64_t read16(uint64_t address)
+uint64_t CPU::read16(uint64_t address)
 {
     uint64_t datahi, datalo;
     datahi = read8(address);
     datalo = read8(address + 1);
     return (datahi << 8) | datalo;
 }
-static void write16(uint64_t address, uint64_t data)
+void CPU::write16(uint64_t address, uint64_t data)
 {
     write8(address, data >> 8);
     write8(address + 1, data);
 }
-static void push8(uint64_t *sp, uint64_t data)
+void CPU::push8(uint64_t *sp, uint64_t data)
 {
     (*sp)--;
     write8(*sp, data);
 }
-static uint64_t pull8(uint64_t *sp)
+uint64_t CPU::pull8(uint64_t *sp)
 {
     uint64_t data;
     data = read8(*sp);
     (*sp)++;
     return data;
 }
-static void push16(uint64_t *sp, uint64_t data)
+void CPU::push16(uint64_t *sp, uint64_t data)
 {
     push8(sp, data);
     push8(sp, data >> 8);
 }
-static uint64_t pull16(uint64_t *sp)
+uint64_t CPU::pull16(uint64_t *sp)
 {
     uint64_t datahi, datalo;
     datahi = pull8(sp);
     datalo = pull8(sp);
     return (datahi << 8) | datalo;
 }
-static uint64_t pc_read8(void)
+uint64_t CPU::pc_read8(void)
 {
     uint64_t data;
     data = read8(reg_pc);
     reg_pc++;
     return data;
 }
-static uint64_t pc_read16(void)
+uint64_t CPU::pc_read16(void)
 {
     uint64_t data;
     data = read16(reg_pc);
     reg_pc += 2;
     return data;
 }
-static uint64_t sign_extend(uint64_t data)
+uint64_t CPU::sign_extend(uint64_t data)
 {
     return (~(data & 0x80) + 1) | (data & 0xff);
 }
-static uint64_t ea_direct(void)
+uint64_t CPU::ea_direct(void)
 {
     return (reg_dp << 8) | pc_read8();
 }
-static uint64_t ea_extended(void)
+uint64_t CPU::ea_extended(void)
 {
     return pc_read16();
 }
-static uint64_t ea_indexed(uint64_t *cycles)
+uint64_t CPU::ea_indexed(uint64_t *cycles)
 {
     uint64_t r, op, ea;
     op = pc_read8();
@@ -472,7 +445,7 @@ static uint64_t ea_indexed(uint64_t *cycles)
     }
     return ea;
 }
-uint64_t inst_neg(uint64_t data)
+uint64_t CPU::inst_neg(uint64_t data)
 {
     uint64_t i0, i1, r;
     i0 = 0;
@@ -485,7 +458,7 @@ uint64_t inst_neg(uint64_t data)
     set_cc(FLAG_C, test_c(i0, i1, r, 1));
     return r;
 }
-uint64_t inst_com(uint64_t data)
+uint64_t CPU::inst_com(uint64_t data)
 {
     uint64_t r;
     r = ~data;
@@ -495,7 +468,7 @@ uint64_t inst_com(uint64_t data)
     set_cc(FLAG_C, 1);
     return r;
 }
-uint64_t inst_lsr(uint64_t data)
+uint64_t CPU::inst_lsr(uint64_t data)
 {
     uint64_t r;
     r = (data >> 1) & 0x7f;
@@ -504,7 +477,7 @@ uint64_t inst_lsr(uint64_t data)
     set_cc(FLAG_C, data & 1);
     return r;
 }
-uint64_t inst_ror(uint64_t data)
+uint64_t CPU::inst_ror(uint64_t data)
 {
     uint64_t r, c;
     c = get_cc(FLAG_C);
@@ -514,7 +487,7 @@ uint64_t inst_ror(uint64_t data)
     set_cc(FLAG_C, data & 1);
     return r;
 }
-uint64_t inst_asr(uint64_t data)
+uint64_t CPU::inst_asr(uint64_t data)
 {
     uint64_t r;
     r = ((data >> 1) & 0x7f) | (data & 0x80);
@@ -523,7 +496,7 @@ uint64_t inst_asr(uint64_t data)
     set_cc(FLAG_C, data & 1);
     return r;
 }
-uint64_t inst_asl(uint64_t data)
+uint64_t CPU::inst_asl(uint64_t data)
 {
     uint64_t i0, i1, r;
     i0 = data;
@@ -536,7 +509,7 @@ uint64_t inst_asl(uint64_t data)
     set_cc(FLAG_C, test_c(i0, i1, r, 0));
     return r;
 }
-uint64_t inst_rol(uint64_t data)
+uint64_t CPU::inst_rol(uint64_t data)
 {
     uint64_t i0, i1, c, r;
     i0 = data;
@@ -549,7 +522,7 @@ uint64_t inst_rol(uint64_t data)
     set_cc(FLAG_C, test_c(i0, i1, r, 0));
     return r;
 }
-uint64_t inst_dec(uint64_t data)
+uint64_t CPU::inst_dec(uint64_t data)
 {
     uint64_t i0, i1, r;
     i0 = data;
@@ -560,7 +533,7 @@ uint64_t inst_dec(uint64_t data)
     set_cc(FLAG_V, test_v(i0, i1, r));
     return r;
 }
-uint64_t inst_inc(uint64_t data)
+uint64_t CPU::inst_inc(uint64_t data)
 {
     uint64_t i0, i1, r;
     i0 = data;
@@ -571,26 +544,26 @@ uint64_t inst_inc(uint64_t data)
     set_cc(FLAG_V, test_v(i0, i1, r));
     return r;
 }
-void inst_tst8(uint64_t data)
+void CPU::inst_tst8(uint64_t data)
 {
     set_cc(FLAG_N, test_n(data));
     set_cc(FLAG_Z, test_z8(data));
     set_cc(FLAG_V, 0);
 }
-void inst_tst16(uint64_t data)
+void CPU::inst_tst16(uint64_t data)
 {
     set_cc(FLAG_N, test_n(data >> 8));
     set_cc(FLAG_Z, test_z16(data));
     set_cc(FLAG_V, 0);
 }
-void inst_clr(void)
+void CPU::inst_clr(void)
 {
     set_cc(FLAG_N, 0);
     set_cc(FLAG_Z, 1);
     set_cc(FLAG_V, 0);
     set_cc(FLAG_C, 0);
 }
-uint64_t inst_sub8(uint64_t data0, uint64_t data1)
+uint64_t CPU::inst_sub8(uint64_t data0, uint64_t data1)
 {
     uint64_t i0, i1, r;
     i0 = data0;
@@ -603,7 +576,7 @@ uint64_t inst_sub8(uint64_t data0, uint64_t data1)
     set_cc(FLAG_C, test_c(i0, i1, r, 1));
     return r;
 }
-uint64_t inst_sbc(uint64_t data0, uint64_t data1)
+uint64_t CPU::inst_sbc(uint64_t data0, uint64_t data1)
 {
     uint64_t i0, i1, c, r;
     i0 = data0;
@@ -617,21 +590,21 @@ uint64_t inst_sbc(uint64_t data0, uint64_t data1)
     set_cc(FLAG_C, test_c(i0, i1, r, 1));
     return r;
 }
-uint64_t inst_and(uint64_t data0, uint64_t data1)
+uint64_t CPU::inst_and(uint64_t data0, uint64_t data1)
 {
     uint64_t r;
     r = data0 & data1;
     inst_tst8(r);
     return r;
 }
-uint64_t inst_eor(uint64_t data0, uint64_t data1)
+uint64_t CPU::inst_eor(uint64_t data0, uint64_t data1)
 {
     uint64_t r;
     r = data0 ^ data1;
     inst_tst8(r);
     return r;
 }
-uint64_t inst_adc(uint64_t data0, uint64_t data1)
+uint64_t CPU::inst_adc(uint64_t data0, uint64_t data1)
 {
     uint64_t i0, i1, c, r;
     i0 = data0;
@@ -645,14 +618,14 @@ uint64_t inst_adc(uint64_t data0, uint64_t data1)
     set_cc(FLAG_C, test_c(i0, i1, r, 0));
     return r;
 }
-uint64_t inst_or(uint64_t data0, uint64_t data1)
+uint64_t CPU::inst_or(uint64_t data0, uint64_t data1)
 {
     uint64_t r;
     r = data0 | data1;
     inst_tst8(r);
     return r;
 }
-uint64_t inst_add8(uint64_t data0, uint64_t data1)
+uint64_t CPU::inst_add8(uint64_t data0, uint64_t data1)
 {
     uint64_t i0, i1, r;
     i0 = data0;
@@ -665,7 +638,7 @@ uint64_t inst_add8(uint64_t data0, uint64_t data1)
     set_cc(FLAG_C, test_c(i0, i1, r, 0));
     return r;
 }
-uint64_t inst_add16(uint64_t data0, uint64_t data1)
+uint64_t CPU::inst_add16(uint64_t data0, uint64_t data1)
 {
     uint64_t i0, i1, r;
     i0 = data0;
@@ -677,7 +650,7 @@ uint64_t inst_add16(uint64_t data0, uint64_t data1)
     set_cc(FLAG_C, test_c(i0 >> 8, i1 >> 8, r >> 8, 0));
     return r;
 }
-uint64_t inst_sub16(uint64_t data0, uint64_t data1)
+uint64_t CPU::inst_sub16(uint64_t data0, uint64_t data1)
 {
     uint64_t i0, i1, r;
     i0 = data0;
@@ -689,7 +662,7 @@ uint64_t inst_sub16(uint64_t data0, uint64_t data1)
     set_cc(FLAG_C, test_c(i0 >> 8, i1 >> 8, r >> 8, 1));
     return r;
 }
-void inst_bra8(uint64_t test, uint64_t op, uint64_t *cycles)
+void CPU::inst_bra8(uint64_t test, uint64_t op, uint64_t *cycles)
 {
     uint64_t offset, mask;
     offset = pc_read8();
@@ -697,7 +670,7 @@ void inst_bra8(uint64_t test, uint64_t op, uint64_t *cycles)
     reg_pc += sign_extend(offset) & mask;
     *cycles += 3;
 }
-void inst_bra16(uint64_t test, uint64_t op, uint64_t *cycles)
+void CPU::inst_bra16(uint64_t test, uint64_t op, uint64_t *cycles)
 {
     uint64_t offset, mask;
     offset = pc_read16();
@@ -705,7 +678,7 @@ void inst_bra16(uint64_t test, uint64_t op, uint64_t *cycles)
     reg_pc += offset & mask;
     *cycles += 5 - mask;
 }
-void inst_psh(uint64_t op, uint64_t *sp, uint64_t data, uint64_t *cycles)
+void CPU::inst_psh(uint64_t op, uint64_t *sp, uint64_t data, uint64_t *cycles)
 {
     if (op & 0x80) {
         push16(sp, reg_pc);
@@ -740,7 +713,7 @@ void inst_psh(uint64_t op, uint64_t *sp, uint64_t data, uint64_t *cycles)
         *cycles += 1;
     }
 }
-void inst_pul(uint64_t op, uint64_t *sp, uint64_t *osp, uint64_t *cycles)
+void CPU::inst_pul(uint64_t op, uint64_t *sp, uint64_t *osp, uint64_t *cycles)
 {
     if (op & 0x01) {
         reg_cc = pull8(sp);
@@ -775,7 +748,7 @@ void inst_pul(uint64_t op, uint64_t *sp, uint64_t *osp, uint64_t *cycles)
         *cycles += 2;
     }
 }
-uint64_t exgtfr_read(uint64_t reg)
+uint64_t CPU::exgtfr_read(uint64_t reg)
 {
     uint64_t data;
     switch (reg) {
@@ -816,7 +789,7 @@ uint64_t exgtfr_read(uint64_t reg)
     }
     return data;
 }
-void exgtfr_write(uint64_t reg, uint64_t data)
+void CPU::exgtfr_write(uint64_t reg, uint64_t data)
 {
     switch (reg) {
         case 0x0:
@@ -854,7 +827,7 @@ void exgtfr_write(uint64_t reg, uint64_t data)
             break;
     }
 }
-void inst_exg(void)
+void CPU::inst_exg(void)
 {
     uint64_t op, tmp;
     op  = pc_read8();
@@ -862,13 +835,13 @@ void inst_exg(void)
     exgtfr_write(op & 0xf, exgtfr_read(op >> 4));
     exgtfr_write(op >> 4, tmp);
 }
-void inst_tfr(void)
+void CPU::inst_tfr(void)
 {
     uint64_t op;
     op = pc_read8();
     exgtfr_write(op & 0xf, exgtfr_read(op >> 4));
 }
-void e6809_reset(void)
+void CPU::e6809_reset(void)
 {
     reg_x      = 0;
     reg_y      = 0;
@@ -881,11 +854,12 @@ void e6809_reset(void)
     irq_status = IRQ_NORMAL;
     reg_pc     = read16(0xfffe);
 }
-uint64_t e6809_sstep(uint64_t irq_i, uint64_t irq_f)
+uint64_t CPU::e6809_sstep(uint64_t irq_i, uint64_t irq_f)
 {
     uint64_t op;
     uint64_t cycles = 0;
     uint64_t ea, i0, i1, r;
+
     if (irq_f) {
         if (get_cc(FLAG_F) == 0) {
             if (irq_status != IRQ_CWAI) {
@@ -903,6 +877,7 @@ uint64_t e6809_sstep(uint64_t irq_i, uint64_t irq_f)
             }
         }
     }
+
     if (irq_i) {
         if (get_cc(FLAG_I) == 0) {
             if (irq_status != IRQ_CWAI) {
@@ -919,9 +894,11 @@ uint64_t e6809_sstep(uint64_t irq_i, uint64_t irq_f)
             }
         }
     }
+
     if (irq_status != IRQ_NORMAL) {
         return cycles + 1;
     }
+
     op = pc_read8();
     switch (op) {
         case 0x00:

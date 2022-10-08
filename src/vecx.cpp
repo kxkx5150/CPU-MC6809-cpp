@@ -4,6 +4,8 @@
 #include "e8910.h"
 
 
+extern CPU *cpu;
+
 unsigned char rom[8192];
 unsigned char cart[32768];
 uint64_t      snd_regs[16];
@@ -404,7 +406,7 @@ void vecx_reset(void)
     vectors_erse = vectors_set + VECTOR_CNT;
     fcycles      = FCYCLES_INIT;
 
-    e6809_reset();
+    cpu->e6809_reset();
 }
 static void via_sstep0(void)
 {
@@ -600,7 +602,7 @@ void vecx_emu(long cycles)
 {
     uint64_t c, icycles;
     while (cycles > 0) {
-        icycles = e6809_sstep(via_ifr & 0x80, 0);
+        icycles = cpu->e6809_sstep(via_ifr & 0x80, 0);
         for (c = 0; c < icycles; c++) {
             via_sstep0();
             alg_sstep();
