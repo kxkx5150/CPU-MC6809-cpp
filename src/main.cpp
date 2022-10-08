@@ -19,17 +19,20 @@ static long  offy;
 static char *cartfilename = NULL;
 
 
-CPU *cpu = new CPU();
+CPU  *cpu  = new CPU();
+VECX *vecx = new VECX();
+
 
 void osint_render(void)
 {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 
-    for (int v = 0; v < vector_draw_cnt; v++) {
-        uint8_t c = vectors_draw[v].color * 256 / VECTREX_COLORS;
-        aalineRGBA(renderer, offx + vectors_draw[v].x0 / scl_factor, offy + vectors_draw[v].y0 / scl_factor,
-                   offx + vectors_draw[v].x1 / scl_factor, offy + vectors_draw[v].y1 / scl_factor, c, c, c, 0xff);
+    for (int v = 0; v < vecx->vector_draw_cnt; v++) {
+        uint8_t c = vecx->vectors_draw[v].color * 256 / vecx->VECTREX_COLORS;
+        aalineRGBA(renderer, offx + vecx->vectors_draw[v].x0 / scl_factor, offy + vecx->vectors_draw[v].y0 / scl_factor,
+                   offx + vecx->vectors_draw[v].x1 / scl_factor, offy + vecx->vectors_draw[v].y1 / scl_factor, c, c, c,
+                   0xff);
     }
 
     SDL_RenderPresent(renderer);
@@ -46,13 +49,13 @@ void resize(int width, int height)
     }
     overlay_original = SDL_GetWindowSurface(screen);
 
-    sclx = ALG_MAX_X / overlay_original->w;
-    scly = ALG_MAX_Y / overlay_original->h;
+    sclx = vecx->ALG_MAX_X / overlay_original->w;
+    scly = vecx->ALG_MAX_Y / overlay_original->h;
 
     scl_factor = sclx > scly ? sclx : scly;
 
-    offx = (width - ALG_MAX_X / scl_factor) / 2;
-    offy = (height - ALG_MAX_Y / scl_factor) / 2;
+    offx = (width - vecx->ALG_MAX_X / scl_factor) / 2;
+    offy = (height - vecx->ALG_MAX_Y / scl_factor) / 2;
 }
 static void readevents()
 {
@@ -70,28 +73,28 @@ static void readevents()
                     case SDLK_ESCAPE:
                         exit(EXIT_SUCCESS);
                     case SDLK_a:
-                        snd_regs[14] &= ~0x01;
+                        vecx->snd_regs[14] &= ~0x01;
                         break;
                     case SDLK_s:
-                        snd_regs[14] &= ~0x02;
+                        vecx->snd_regs[14] &= ~0x02;
                         break;
                     case SDLK_d:
-                        snd_regs[14] &= ~0x04;
+                        vecx->snd_regs[14] &= ~0x04;
                         break;
                     case SDLK_f:
-                        snd_regs[14] &= ~0x08;
+                        vecx->snd_regs[14] &= ~0x08;
                         break;
                     case SDLK_LEFT:
-                        alg_jch0 = 0x00;
+                        vecx->alg_jch0 = 0x00;
                         break;
                     case SDLK_RIGHT:
-                        alg_jch0 = 0xff;
+                        vecx->alg_jch0 = 0xff;
                         break;
                     case SDLK_UP:
-                        alg_jch1 = 0xff;
+                        vecx->alg_jch1 = 0xff;
                         break;
                     case SDLK_DOWN:
-                        alg_jch1 = 0x00;
+                        vecx->alg_jch1 = 0x00;
                         break;
                     default:
                         break;
@@ -100,28 +103,28 @@ static void readevents()
             case SDL_KEYUP:
                 switch (e.key.keysym.sym) {
                     case SDLK_a:
-                        snd_regs[14] |= 0x01;
+                        vecx->snd_regs[14] |= 0x01;
                         break;
                     case SDLK_s:
-                        snd_regs[14] |= 0x02;
+                        vecx->snd_regs[14] |= 0x02;
                         break;
                     case SDLK_d:
-                        snd_regs[14] |= 0x04;
+                        vecx->snd_regs[14] |= 0x04;
                         break;
                     case SDLK_f:
-                        snd_regs[14] |= 0x08;
+                        vecx->snd_regs[14] |= 0x08;
                         break;
                     case SDLK_LEFT:
-                        alg_jch0 = 0x80;
+                        vecx->alg_jch0 = 0x80;
                         break;
                     case SDLK_RIGHT:
-                        alg_jch0 = 0x80;
+                        vecx->alg_jch0 = 0x80;
                         break;
                     case SDLK_UP:
-                        alg_jch1 = 0x80;
+                        vecx->alg_jch1 = 0x80;
                         break;
                     case SDLK_DOWN:
-                        alg_jch1 = 0x80;
+                        vecx->alg_jch1 = 0x80;
                         break;
                     default:
                         break;
@@ -148,13 +151,13 @@ static void init()
     if (!(f = fopen("rom.dat", "rb"))) {
         exit(EXIT_FAILURE);
     }
-    if (fread(rom, 1, sizeof(rom), f) != sizeof(rom)) {
+    if (fread(vecx->rom, 1, sizeof(vecx->rom), f) != sizeof(vecx->rom)) {
         printf("Invalid rom length\n");
         exit(EXIT_FAILURE);
     }
     fclose(f);
 
-    memset(cart, 0, sizeof(cart));
+    memset(vecx->cart, 0, sizeof(vecx->cart));
     if (cartfilename) {
         FILE *f;
         if (!(f = fopen(cartfilename, "rb"))) {
@@ -162,17 +165,17 @@ static void init()
             exit(EXIT_FAILURE);
         }
 
-        fread(cart, 1, sizeof(cart), f);
+        fread(vecx->cart, 1, sizeof(vecx->cart), f);
         fclose(f);
     }
 }
 void osint_emuloop()
 {
     Uint32 next_time = SDL_GetTicks() + EMU_TIMER;
-    vecx_reset();
+    vecx->vecx_reset();
 
     for (;;) {
-        vecx_emu((VECTREX_MHZ / 1000) * EMU_TIMER);
+        vecx->vecx_emu((vecx->VECTREX_MHZ / 1000) * EMU_TIMER);
         readevents();
 
         {

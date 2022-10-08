@@ -5,89 +5,11 @@
 
 
 extern CPU *cpu;
-
-uint8_t  rom[8192];
-uint8_t  cart[32768];
-uint64_t snd_regs[16];
-
 extern void osint_render(void);
 
 
-static uint8_t ram[1024];
 
-
-static uint64_t snd_select;
-static uint64_t via_ora;
-static uint64_t via_orb;
-static uint64_t via_ddra;
-static uint64_t via_ddrb;
-static uint64_t via_t1on;
-static uint64_t via_t1int;
-static uint64_t via_t1c;
-static uint64_t via_t1ll;
-static uint64_t via_t1lh;
-static uint64_t via_t1pb7;
-static uint64_t via_t2on;
-static uint64_t via_t2int;
-static uint64_t via_t2c;
-static uint64_t via_t2ll;
-static uint64_t via_sr;
-static uint64_t via_srb;
-static uint64_t via_src;
-static uint64_t via_srclk;
-static uint64_t via_acr;
-static uint64_t via_pcr;
-static uint64_t via_ifr;
-static uint64_t via_ier;
-static uint64_t via_ca2;
-static uint64_t via_cb2h;
-static uint64_t via_cb2s;
-static uint64_t alg_rsh;
-static uint64_t alg_xsh;
-static uint64_t alg_ysh;
-static uint64_t alg_zsh;
-
-uint64_t alg_jch0;
-uint64_t alg_jch1;
-uint64_t alg_jch2;
-uint64_t alg_jch3;
-
-static uint64_t alg_jsh;
-static uint64_t alg_compare;
-static long     alg_dx;
-static long     alg_dy;
-static long     alg_curr_x;
-static long     alg_curr_y;
-
-static uint64_t alg_vectoring;
-static long     alg_vector_x0;
-static long     alg_vector_y0;
-static long     alg_vector_x1;
-static long     alg_vector_y1;
-static long     alg_vector_dx;
-static long     alg_vector_dy;
-static uint8_t  alg_vector_color;
-
-enum
-{
-    VECTREX_PDECAY = 30,
-    FCYCLES_INIT   = VECTREX_MHZ / VECTREX_PDECAY,
-    VECTOR_CNT     = VECTREX_MHZ / VECTREX_PDECAY,
-    VECTOR_HASH    = 65521
-};
-
-
-
-long            vector_draw_cnt;
-long            vector_erse_cnt;
-static vector_t vectors_set[2 * VECTOR_CNT];
-vector_t       *vectors_draw;
-vector_t       *vectors_erse;
-static long     vector_hash[VECTOR_HASH];
-static long     fcycles;
-
-
-static void snd_update(void)
+void VECX::snd_update(void)
 {
     switch (via_orb & 0x18) {
         case 0x00:
@@ -107,7 +29,7 @@ static void snd_update(void)
             break;
     }
 }
-static void alg_update(void)
+void VECX::alg_update(void)
 {
     switch (via_orb & 0x06) {
         case 0x00:
@@ -146,7 +68,7 @@ static void alg_update(void)
     alg_dx = (long)alg_xsh - (long)alg_rsh;
     alg_dy = (long)alg_rsh - (long)alg_ysh;
 }
-static void int_update(void)
+void VECX::int_update(void)
 {
     if ((via_ifr & 0x7f) & (via_ier & 0x7f)) {
         via_ifr |= 0x80;
@@ -154,7 +76,7 @@ static void int_update(void)
         via_ifr &= 0x7f;
     }
 }
-uint8_t _read8(uint64_t address)
+uint8_t VECX::_read8(uint64_t address)
 {
     uint8_t data;
     if ((address & 0xe000) == 0xe000) {
@@ -243,7 +165,7 @@ uint8_t _read8(uint64_t address)
     }
     return data;
 }
-void _write8(uint64_t address, uint8_t data)
+void VECX::_write8(uint64_t address, uint8_t data)
 {
     if ((address & 0xe000) == 0xe000) {
     } else if ((address & 0xe000) == 0xc000) {
@@ -344,7 +266,7 @@ void _write8(uint64_t address, uint8_t data)
     } else if (address < 0x8000) {
     }
 }
-void vecx_reset(void)
+void VECX::vecx_reset(void)
 {
     uint64_t r;
     for (r = 0; r < 1024; r++) {
@@ -408,7 +330,7 @@ void vecx_reset(void)
 
     cpu->e6809_reset();
 }
-static void via_sstep0(void)
+void VECX::via_sstep0(void)
 {
     uint64_t t2shift;
     if (via_t1on) {
@@ -498,7 +420,7 @@ static void via_sstep0(void)
         }
     }
 }
-static void via_sstep1(void)
+void VECX::via_sstep1(void)
 {
     if ((via_pcr & 0x0e) == 0x0a) {
         via_ca2 = 1;
@@ -507,7 +429,7 @@ static void via_sstep1(void)
         via_cb2h = 1;
     }
 }
-static void alg_addline(long x0, long y0, long x1, long y1, uint8_t color)
+void VECX::alg_addline(long x0, long y0, long x1, long y1, uint8_t color)
 {
     uint64_t key;
     long     index;
@@ -534,7 +456,7 @@ static void alg_addline(long x0, long y0, long x1, long y1, uint8_t color)
         vector_draw_cnt++;
     }
 }
-static void alg_sstep(void)
+void VECX::alg_sstep(void)
 {
     long     sig_dx, sig_dy;
     uint64_t sig_ramp;
@@ -598,7 +520,7 @@ static void alg_sstep(void)
         alg_vector_y1 = alg_curr_y;
     }
 }
-void vecx_emu(long cycles)
+void VECX::vecx_emu(long cycles)
 {
     uint64_t c, icycles;
     while (cycles > 0) {
