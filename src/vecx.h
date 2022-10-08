@@ -1,6 +1,8 @@
 #ifndef __VECX_H
 #define __VECX_H
 
+#include <cstdint>
+
 enum
 {
     VECTREX_MHZ    = 1500000,
@@ -20,11 +22,11 @@ typedef struct vector_type
 extern unsigned char rom[8192];
 extern unsigned char cart[32768];
 
-extern unsigned snd_regs[16];
-extern unsigned alg_jch0;
-extern unsigned alg_jch1;
-extern unsigned alg_jch2;
-extern unsigned alg_jch3;
+extern uint64_t snd_regs[16];
+extern uint64_t alg_jch0;
+extern uint64_t alg_jch1;
+extern uint64_t alg_jch2;
+extern uint64_t alg_jch3;
 
 extern long      vector_draw_cnt;
 extern long      vector_erse_cnt;
@@ -34,5 +36,8 @@ extern vector_t *vectors_erse;
 
 void vecx_reset(void);
 void vecx_emu(long cycles);
+
+unsigned char _read8(uint64_t address);
+void          _write8(uint64_t address, unsigned char data);
 
 #endif

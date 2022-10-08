@@ -2,23 +2,19 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL2_gfxPrimitives.h>
-// #include "SDL_rotozoom.h"
-#include "osint.h"
 #include "e8910.h"
 #include "vecx.h"
 
 #define EMU_TIMER 20
 
-static SDL_Window   *screen   = NULL;
-static SDL_Renderer *renderer = NULL;
+static SDL_Window   *screen           = NULL;
+static SDL_Renderer *renderer         = NULL;
+static SDL_Surface  *overlay_original = NULL;
+static SDL_Surface  *overlay          = NULL;
 
-static SDL_Surface *overlay_original = NULL;
-static SDL_Surface *overlay          = NULL;
-
-static long scl_factor;
-static long offx;
-static long offy;
-
+static long  scl_factor;
+static long  offx;
+static long  offy;
 static char *cartfilename = NULL;
 
 
@@ -32,11 +28,6 @@ void osint_render(void)
         aalineRGBA(renderer, offx + vectors_draw[v].x0 / scl_factor, offy + vectors_draw[v].y0 / scl_factor,
                    offx + vectors_draw[v].x1 / scl_factor, offy + vectors_draw[v].y1 / scl_factor, c, c, c, 0xff);
     }
-
-    // if (overlay) {
-    //     SDL_Rect dest_rect = {offx, offy, 0, 0};
-    //     SDL_BlitSurface(overlay, NULL, screen, &dest_rect);
-    // }
 
     SDL_RenderPresent(renderer);
 }
@@ -56,13 +47,6 @@ void resize(int width, int height)
 
     offx = (width - ALG_MAX_X / scl_factor) / 2;
     offy = (height - ALG_MAX_Y / scl_factor) / 2;
-
-    // if (overlay_original) {
-    //     if (overlay)
-    //         SDL_FreeSurface(overlay);
-    //     double overlay_scale = ((double)ALG_MAX_X / (double)scl_factor) / (double)overlay_original->w;
-    //     overlay              = zoomSurface(overlay_original, overlay_scale, overlay_scale, 0);
-    // }
 }
 static void readevents()
 {
@@ -203,9 +187,6 @@ int main(int argc, char *argv[])
 
     if (argc > 1)
         cartfilename = argv[1];
-
-    // if (argc > 2)
-    //     load_overlay(argv[2]);
 
     init();
     e8910_init_sound();

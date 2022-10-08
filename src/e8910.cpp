@@ -35,14 +35,14 @@ typedef unsigned int  UINT32;
 typedef char          INT8;
 typedef unsigned char UINT8;
 
-extern unsigned snd_regs[16];
+extern uint64_t snd_regs[16];
 
 
 struct AY8910
 {
     int          index;
     int          ready;
-    unsigned    *Regs;
+    uint64_t    *Regs;
     INT32        lastEnable;
     INT32        PeriodA, PeriodB, PeriodC, PeriodN, PeriodE;
     INT32        CountA, CountB, CountC, CountN, CountE;
@@ -203,7 +203,7 @@ static void e8910_callback(void *userdata, uint8_t *stream, int length)
             PSG.CountN += STEP2;
     outn = (PSG.OutputN | PSG.Regs[AY_ENABLE]);
     while (length > 0) {
-        unsigned vol;
+        uint64_t vol;
         int      left = 2;
         int      vola, volb, volc;
         vola = volb = volc = 0;

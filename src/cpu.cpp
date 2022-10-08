@@ -1,6 +1,6 @@
 #include <stdio.h>
-#include "e6809.h"
-
+#include "cpu.h"
+#include "vecx.h"
 
 enum
 {
@@ -17,57 +17,54 @@ enum
     IRQ_CWAI   = 2
 };
 
-static unsigned  reg_x;
-static unsigned  reg_y;
-static unsigned  reg_u;
-static unsigned  reg_s;
-static unsigned  reg_pc;
-static unsigned  reg_a;
-static unsigned  reg_b;
-static unsigned  reg_dp;
-static unsigned  reg_cc;
-static unsigned  irq_status;
-static unsigned *rptr_xyus[4] = {&reg_x, &reg_y, &reg_u, &reg_s};
+static uint64_t  reg_x;
+static uint64_t  reg_y;
+static uint64_t  reg_u;
+static uint64_t  reg_s;
+static uint64_t  reg_pc;
+static uint64_t  reg_a;
+static uint64_t  reg_b;
+static uint64_t  reg_dp;
+static uint64_t  reg_cc;
+static uint64_t  irq_status;
+static uint64_t *rptr_xyus[4] = {&reg_x, &reg_y, &reg_u, &reg_s};
 
 
-unsigned char (*e6809_read8)(unsigned address);
-void (*e6809_write8)(unsigned address, unsigned char data);
 
-
-static unsigned get_cc(unsigned flag)
+static uint64_t get_cc(uint64_t flag)
 {
     return (reg_cc / flag) & 1;
 }
-static void set_cc(unsigned flag, unsigned value)
+static void set_cc(uint64_t flag, uint64_t value)
 {
     reg_cc &= ~flag;
     reg_cc |= value * flag;
 }
-static unsigned test_c(unsigned i0, unsigned i1, unsigned r, unsigned sub)
+static uint64_t test_c(uint64_t i0, uint64_t i1, uint64_t r, uint64_t sub)
 {
-    unsigned flag;
+    uint64_t flag;
     flag = (i0 | i1) & ~r;
     flag |= (i0 & i1);
     flag = (flag >> 7) & 1;
     flag ^= sub;
     return flag;
 }
-static unsigned test_n(unsigned r)
+static uint64_t test_n(uint64_t r)
 {
     return (r >> 7) & 1;
 }
-static unsigned test_z8(unsigned r)
+static uint64_t test_z8(uint64_t r)
 {
-    unsigned flag;
+    uint64_t flag;
     flag = ~r;
     flag = (flag >> 4) & (flag & 0xf);
     flag = (flag >> 2) & (flag & 0x3);
     flag = (flag >> 1) & (flag & 0x1);
     return flag;
 }
-static unsigned test_z16(unsigned r)
+static uint64_t test_z16(uint64_t r)
 {
-    unsigned flag;
+    uint64_t flag;
     flag = ~r;
     flag = (flag >> 8) & (flag & 0xff);
     flag = (flag >> 4) & (flag & 0xf);
@@ -75,96 +72,96 @@ static unsigned test_z16(unsigned r)
     flag = (flag >> 1) & (flag & 0x1);
     return flag;
 }
-static unsigned test_v(unsigned i0, unsigned i1, unsigned r)
+static uint64_t test_v(uint64_t i0, uint64_t i1, uint64_t r)
 {
-    unsigned flag;
+    uint64_t flag;
     flag = ~(i0 ^ i1);
     flag &= (i0 ^ r);
     flag = (flag >> 7) & 1;
     return flag;
 }
-static unsigned get_reg_d(void)
+static uint64_t get_reg_d(void)
 {
     return (reg_a << 8) | (reg_b & 0xff);
 }
-static void set_reg_d(unsigned value)
+static void set_reg_d(uint64_t value)
 {
     reg_a = value >> 8;
     reg_b = value;
 }
-static unsigned read8(unsigned address)
+static uint64_t read8(uint64_t address)
 {
-    return (*e6809_read8)(address & 0xffff);
+    return _read8(address & 0xffff);
 }
-static void write8(unsigned address, unsigned data)
+static void write8(uint64_t address, uint64_t data)
 {
-    (*e6809_write8)(address & 0xffff, (unsigned char)data);
+    _write8(address & 0xffff, (unsigned char)data);
 }
-static unsigned read16(unsigned address)
+static uint64_t read16(uint64_t address)
 {
-    unsigned datahi, datalo;
+    uint64_t datahi, datalo;
     datahi = read8(address);
     datalo = read8(address + 1);
     return (datahi << 8) | datalo;
 }
-static void write16(unsigned address, unsigned data)
+static void write16(uint64_t address, uint64_t data)
 {
     write8(address, data >> 8);
     write8(address + 1, data);
 }
-static void push8(unsigned *sp, unsigned data)
+static void push8(uint64_t *sp, uint64_t data)
 {
     (*sp)--;
     write8(*sp, data);
 }
-static unsigned pull8(unsigned *sp)
+static uint64_t pull8(uint64_t *sp)
 {
-    unsigned data;
+    uint64_t data;
     data = read8(*sp);
     (*sp)++;
     return data;
 }
-static void push16(unsigned *sp, unsigned data)
+static void push16(uint64_t *sp, uint64_t data)
 {
     push8(sp, data);
     push8(sp, data >> 8);
 }
-static unsigned pull16(unsigned *sp)
+static uint64_t pull16(uint64_t *sp)
 {
-    unsigned datahi, datalo;
+    uint64_t datahi, datalo;
     datahi = pull8(sp);
     datalo = pull8(sp);
     return (datahi << 8) | datalo;
 }
-static unsigned pc_read8(void)
+static uint64_t pc_read8(void)
 {
-    unsigned data;
+    uint64_t data;
     data = read8(reg_pc);
     reg_pc++;
     return data;
 }
-static unsigned pc_read16(void)
+static uint64_t pc_read16(void)
 {
-    unsigned data;
+    uint64_t data;
     data = read16(reg_pc);
     reg_pc += 2;
     return data;
 }
-static unsigned sign_extend(unsigned data)
+static uint64_t sign_extend(uint64_t data)
 {
     return (~(data & 0x80) + 1) | (data & 0xff);
 }
-static unsigned ea_direct(void)
+static uint64_t ea_direct(void)
 {
     return (reg_dp << 8) | pc_read8();
 }
-static unsigned ea_extended(void)
+static uint64_t ea_extended(void)
 {
     return pc_read16();
 }
-static unsigned ea_indexed(unsigned *cycles)
+static uint64_t ea_indexed(uint64_t *cycles)
 {
-    unsigned r, op, ea;
+    uint64_t r, op, ea;
     op = pc_read8();
     r  = (op >> 5) & 3;
     switch (op) {
@@ -475,9 +472,9 @@ static unsigned ea_indexed(unsigned *cycles)
     }
     return ea;
 }
-unsigned inst_neg(unsigned data)
+uint64_t inst_neg(uint64_t data)
 {
-    unsigned i0, i1, r;
+    uint64_t i0, i1, r;
     i0 = 0;
     i1 = ~data;
     r  = i0 + i1 + 1;
@@ -488,9 +485,9 @@ unsigned inst_neg(unsigned data)
     set_cc(FLAG_C, test_c(i0, i1, r, 1));
     return r;
 }
-unsigned inst_com(unsigned data)
+uint64_t inst_com(uint64_t data)
 {
-    unsigned r;
+    uint64_t r;
     r = ~data;
     set_cc(FLAG_N, test_n(r));
     set_cc(FLAG_Z, test_z8(r));
@@ -498,18 +495,18 @@ unsigned inst_com(unsigned data)
     set_cc(FLAG_C, 1);
     return r;
 }
-unsigned inst_lsr(unsigned data)
+uint64_t inst_lsr(uint64_t data)
 {
-    unsigned r;
+    uint64_t r;
     r = (data >> 1) & 0x7f;
     set_cc(FLAG_N, 0);
     set_cc(FLAG_Z, test_z8(r));
     set_cc(FLAG_C, data & 1);
     return r;
 }
-unsigned inst_ror(unsigned data)
+uint64_t inst_ror(uint64_t data)
 {
-    unsigned r, c;
+    uint64_t r, c;
     c = get_cc(FLAG_C);
     r = ((data >> 1) & 0x7f) | (c << 7);
     set_cc(FLAG_N, test_n(r));
@@ -517,18 +514,18 @@ unsigned inst_ror(unsigned data)
     set_cc(FLAG_C, data & 1);
     return r;
 }
-unsigned inst_asr(unsigned data)
+uint64_t inst_asr(uint64_t data)
 {
-    unsigned r;
+    uint64_t r;
     r = ((data >> 1) & 0x7f) | (data & 0x80);
     set_cc(FLAG_N, test_n(r));
     set_cc(FLAG_Z, test_z8(r));
     set_cc(FLAG_C, data & 1);
     return r;
 }
-unsigned inst_asl(unsigned data)
+uint64_t inst_asl(uint64_t data)
 {
-    unsigned i0, i1, r;
+    uint64_t i0, i1, r;
     i0 = data;
     i1 = data;
     r  = i0 + i1;
@@ -539,9 +536,9 @@ unsigned inst_asl(unsigned data)
     set_cc(FLAG_C, test_c(i0, i1, r, 0));
     return r;
 }
-unsigned inst_rol(unsigned data)
+uint64_t inst_rol(uint64_t data)
 {
-    unsigned i0, i1, c, r;
+    uint64_t i0, i1, c, r;
     i0 = data;
     i1 = data;
     c  = get_cc(FLAG_C);
@@ -552,9 +549,9 @@ unsigned inst_rol(unsigned data)
     set_cc(FLAG_C, test_c(i0, i1, r, 0));
     return r;
 }
-unsigned inst_dec(unsigned data)
+uint64_t inst_dec(uint64_t data)
 {
-    unsigned i0, i1, r;
+    uint64_t i0, i1, r;
     i0 = data;
     i1 = 0xff;
     r  = i0 + i1;
@@ -563,9 +560,9 @@ unsigned inst_dec(unsigned data)
     set_cc(FLAG_V, test_v(i0, i1, r));
     return r;
 }
-unsigned inst_inc(unsigned data)
+uint64_t inst_inc(uint64_t data)
 {
-    unsigned i0, i1, r;
+    uint64_t i0, i1, r;
     i0 = data;
     i1 = 1;
     r  = i0 + i1;
@@ -574,13 +571,13 @@ unsigned inst_inc(unsigned data)
     set_cc(FLAG_V, test_v(i0, i1, r));
     return r;
 }
-void inst_tst8(unsigned data)
+void inst_tst8(uint64_t data)
 {
     set_cc(FLAG_N, test_n(data));
     set_cc(FLAG_Z, test_z8(data));
     set_cc(FLAG_V, 0);
 }
-void inst_tst16(unsigned data)
+void inst_tst16(uint64_t data)
 {
     set_cc(FLAG_N, test_n(data >> 8));
     set_cc(FLAG_Z, test_z16(data));
@@ -593,9 +590,9 @@ void inst_clr(void)
     set_cc(FLAG_V, 0);
     set_cc(FLAG_C, 0);
 }
-unsigned inst_sub8(unsigned data0, unsigned data1)
+uint64_t inst_sub8(uint64_t data0, uint64_t data1)
 {
-    unsigned i0, i1, r;
+    uint64_t i0, i1, r;
     i0 = data0;
     i1 = ~data1;
     r  = i0 + i1 + 1;
@@ -606,9 +603,9 @@ unsigned inst_sub8(unsigned data0, unsigned data1)
     set_cc(FLAG_C, test_c(i0, i1, r, 1));
     return r;
 }
-unsigned inst_sbc(unsigned data0, unsigned data1)
+uint64_t inst_sbc(uint64_t data0, uint64_t data1)
 {
-    unsigned i0, i1, c, r;
+    uint64_t i0, i1, c, r;
     i0 = data0;
     i1 = ~data1;
     c  = 1 - get_cc(FLAG_C);
@@ -620,23 +617,23 @@ unsigned inst_sbc(unsigned data0, unsigned data1)
     set_cc(FLAG_C, test_c(i0, i1, r, 1));
     return r;
 }
-unsigned inst_and(unsigned data0, unsigned data1)
+uint64_t inst_and(uint64_t data0, uint64_t data1)
 {
-    unsigned r;
+    uint64_t r;
     r = data0 & data1;
     inst_tst8(r);
     return r;
 }
-unsigned inst_eor(unsigned data0, unsigned data1)
+uint64_t inst_eor(uint64_t data0, uint64_t data1)
 {
-    unsigned r;
+    uint64_t r;
     r = data0 ^ data1;
     inst_tst8(r);
     return r;
 }
-unsigned inst_adc(unsigned data0, unsigned data1)
+uint64_t inst_adc(uint64_t data0, uint64_t data1)
 {
-    unsigned i0, i1, c, r;
+    uint64_t i0, i1, c, r;
     i0 = data0;
     i1 = data1;
     c  = get_cc(FLAG_C);
@@ -648,16 +645,16 @@ unsigned inst_adc(unsigned data0, unsigned data1)
     set_cc(FLAG_C, test_c(i0, i1, r, 0));
     return r;
 }
-unsigned inst_or(unsigned data0, unsigned data1)
+uint64_t inst_or(uint64_t data0, uint64_t data1)
 {
-    unsigned r;
+    uint64_t r;
     r = data0 | data1;
     inst_tst8(r);
     return r;
 }
-unsigned inst_add8(unsigned data0, unsigned data1)
+uint64_t inst_add8(uint64_t data0, uint64_t data1)
 {
-    unsigned i0, i1, r;
+    uint64_t i0, i1, r;
     i0 = data0;
     i1 = data1;
     r  = i0 + i1;
@@ -668,9 +665,9 @@ unsigned inst_add8(unsigned data0, unsigned data1)
     set_cc(FLAG_C, test_c(i0, i1, r, 0));
     return r;
 }
-unsigned inst_add16(unsigned data0, unsigned data1)
+uint64_t inst_add16(uint64_t data0, uint64_t data1)
 {
-    unsigned i0, i1, r;
+    uint64_t i0, i1, r;
     i0 = data0;
     i1 = data1;
     r  = i0 + i1;
@@ -680,9 +677,9 @@ unsigned inst_add16(unsigned data0, unsigned data1)
     set_cc(FLAG_C, test_c(i0 >> 8, i1 >> 8, r >> 8, 0));
     return r;
 }
-unsigned inst_sub16(unsigned data0, unsigned data1)
+uint64_t inst_sub16(uint64_t data0, uint64_t data1)
 {
-    unsigned i0, i1, r;
+    uint64_t i0, i1, r;
     i0 = data0;
     i1 = ~data1;
     r  = i0 + i1 + 1;
@@ -692,23 +689,23 @@ unsigned inst_sub16(unsigned data0, unsigned data1)
     set_cc(FLAG_C, test_c(i0 >> 8, i1 >> 8, r >> 8, 1));
     return r;
 }
-void inst_bra8(unsigned test, unsigned op, unsigned *cycles)
+void inst_bra8(uint64_t test, uint64_t op, uint64_t *cycles)
 {
-    unsigned offset, mask;
+    uint64_t offset, mask;
     offset = pc_read8();
     mask   = (test ^ (op & 1)) - 1;
     reg_pc += sign_extend(offset) & mask;
     *cycles += 3;
 }
-void inst_bra16(unsigned test, unsigned op, unsigned *cycles)
+void inst_bra16(uint64_t test, uint64_t op, uint64_t *cycles)
 {
-    unsigned offset, mask;
+    uint64_t offset, mask;
     offset = pc_read16();
     mask   = (test ^ (op & 1)) - 1;
     reg_pc += offset & mask;
     *cycles += 5 - mask;
 }
-void inst_psh(unsigned op, unsigned *sp, unsigned data, unsigned *cycles)
+void inst_psh(uint64_t op, uint64_t *sp, uint64_t data, uint64_t *cycles)
 {
     if (op & 0x80) {
         push16(sp, reg_pc);
@@ -743,7 +740,7 @@ void inst_psh(unsigned op, unsigned *sp, unsigned data, unsigned *cycles)
         *cycles += 1;
     }
 }
-void inst_pul(unsigned op, unsigned *sp, unsigned *osp, unsigned *cycles)
+void inst_pul(uint64_t op, uint64_t *sp, uint64_t *osp, uint64_t *cycles)
 {
     if (op & 0x01) {
         reg_cc = pull8(sp);
@@ -778,9 +775,9 @@ void inst_pul(unsigned op, unsigned *sp, unsigned *osp, unsigned *cycles)
         *cycles += 2;
     }
 }
-unsigned exgtfr_read(unsigned reg)
+uint64_t exgtfr_read(uint64_t reg)
 {
-    unsigned data;
+    uint64_t data;
     switch (reg) {
         case 0x0:
             data = get_reg_d();
@@ -814,12 +811,12 @@ unsigned exgtfr_read(unsigned reg)
             break;
         default:
             data = 0xffff;
-            printf("illegal exgtfr reg %.1x\n", reg);
+            printf("illegal exgtfr reg %.1lx\n", reg);
             break;
     }
     return data;
 }
-void exgtfr_write(unsigned reg, unsigned data)
+void exgtfr_write(uint64_t reg, uint64_t data)
 {
     switch (reg) {
         case 0x0:
@@ -853,13 +850,13 @@ void exgtfr_write(unsigned reg, unsigned data)
             reg_dp = data;
             break;
         default:
-            printf("illegal exgtfr reg %.1x\n", reg);
+            printf("illegal exgtfr reg %.1lx\n", reg);
             break;
     }
 }
 void inst_exg(void)
 {
-    unsigned op, tmp;
+    uint64_t op, tmp;
     op  = pc_read8();
     tmp = exgtfr_read(op & 0xf);
     exgtfr_write(op & 0xf, exgtfr_read(op >> 4));
@@ -867,7 +864,7 @@ void inst_exg(void)
 }
 void inst_tfr(void)
 {
-    unsigned op;
+    uint64_t op;
     op = pc_read8();
     exgtfr_write(op & 0xf, exgtfr_read(op >> 4));
 }
@@ -884,11 +881,11 @@ void e6809_reset(void)
     irq_status = IRQ_NORMAL;
     reg_pc     = read16(0xfffe);
 }
-unsigned e6809_sstep(unsigned irq_i, unsigned irq_f)
+uint64_t e6809_sstep(uint64_t irq_i, uint64_t irq_f)
 {
-    unsigned op;
-    unsigned cycles = 0;
-    unsigned ea, i0, i1, r;
+    uint64_t op;
+    uint64_t cycles = 0;
+    uint64_t ea, i0, i1, r;
     if (irq_f) {
         if (get_cc(FLAG_F) == 0) {
             if (irq_status != IRQ_CWAI) {
@@ -2177,7 +2174,7 @@ unsigned e6809_sstep(unsigned irq_i, unsigned irq_f)
                     cycles += 8;
                     break;
                 default:
-                    printf("unknown page-1 op code: %.2x\n", op);
+                    printf("unknown page-1 op code: %.2lx\n", op);
                     break;
             }
             break;
@@ -2229,12 +2226,12 @@ unsigned e6809_sstep(unsigned irq_i, unsigned irq_f)
                     cycles += 8;
                     break;
                 default:
-                    printf("unknown page-2 op code: %.2x\n", op);
+                    printf("unknown page-2 op code: %.2lx\n", op);
                     break;
             }
             break;
         default:
-            printf("unknown page-0 op code: %.2x\n", op);
+            printf("unknown page-0 op code: %.2lx\n", op);
             break;
     }
     return cycles;

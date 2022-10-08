@@ -1,61 +1,63 @@
 #include <stdio.h>
-#include "e6809.h"
+#include "cpu.h"
 #include "vecx.h"
-#include "osint.h"
 #include "e8910.h"
 
 
 unsigned char rom[8192];
 unsigned char cart[32768];
-unsigned      snd_regs[16];
+uint64_t      snd_regs[16];
+
+extern void osint_render(void);
+
 
 static unsigned char ram[1024];
 
 
-static unsigned snd_select;
-static unsigned via_ora;
-static unsigned via_orb;
-static unsigned via_ddra;
-static unsigned via_ddrb;
-static unsigned via_t1on;
-static unsigned via_t1int;
-static unsigned via_t1c;
-static unsigned via_t1ll;
-static unsigned via_t1lh;
-static unsigned via_t1pb7;
-static unsigned via_t2on;
-static unsigned via_t2int;
-static unsigned via_t2c;
-static unsigned via_t2ll;
-static unsigned via_sr;
-static unsigned via_srb;
-static unsigned via_src;
-static unsigned via_srclk;
-static unsigned via_acr;
-static unsigned via_pcr;
-static unsigned via_ifr;
-static unsigned via_ier;
-static unsigned via_ca2;
-static unsigned via_cb2h;
-static unsigned via_cb2s;
-static unsigned alg_rsh;
-static unsigned alg_xsh;
-static unsigned alg_ysh;
-static unsigned alg_zsh;
+static uint64_t snd_select;
+static uint64_t via_ora;
+static uint64_t via_orb;
+static uint64_t via_ddra;
+static uint64_t via_ddrb;
+static uint64_t via_t1on;
+static uint64_t via_t1int;
+static uint64_t via_t1c;
+static uint64_t via_t1ll;
+static uint64_t via_t1lh;
+static uint64_t via_t1pb7;
+static uint64_t via_t2on;
+static uint64_t via_t2int;
+static uint64_t via_t2c;
+static uint64_t via_t2ll;
+static uint64_t via_sr;
+static uint64_t via_srb;
+static uint64_t via_src;
+static uint64_t via_srclk;
+static uint64_t via_acr;
+static uint64_t via_pcr;
+static uint64_t via_ifr;
+static uint64_t via_ier;
+static uint64_t via_ca2;
+static uint64_t via_cb2h;
+static uint64_t via_cb2s;
+static uint64_t alg_rsh;
+static uint64_t alg_xsh;
+static uint64_t alg_ysh;
+static uint64_t alg_zsh;
 
-unsigned alg_jch0;
-unsigned alg_jch1;
-unsigned alg_jch2;
-unsigned alg_jch3;
+uint64_t alg_jch0;
+uint64_t alg_jch1;
+uint64_t alg_jch2;
+uint64_t alg_jch3;
 
-static unsigned alg_jsh;
-static unsigned alg_compare;
+static uint64_t alg_jsh;
+static uint64_t alg_compare;
 static long     alg_dx;
 static long     alg_dy;
 static long     alg_curr_x;
 static long     alg_curr_y;
 
-static unsigned      alg_vectoring;
+static uint64_t      alg_vectoring;
 static long          alg_vector_x0;
 static long          alg_vector_y0;
 static long          alg_vector_x1;
@@ -150,7 +152,7 @@ static void int_update(void)
         via_ifr &= 0x7f;
     }
 }
-unsigned char read8(unsigned address)
+unsigned char _read8(uint64_t address)
 {
     unsigned char data;
     if ((address & 0xe000) == 0xe000) {
@@ -239,7 +241,7 @@ unsigned char read8(unsigned address)
     }
     return data;
 }
-void write8(unsigned address, unsigned char data)
+void _write8(uint64_t address, unsigned char data)
 {
     if ((address & 0xe000) == 0xe000) {
     } else if ((address & 0xe000) == 0xc000) {
@@ -342,7 +344,7 @@ void write8(unsigned address, unsigned char data)
 }
 void vecx_reset(void)
 {
-    unsigned r;
+    uint64_t r;
     for (r = 0; r < 1024; r++) {
         ram[r] = r & 0xff;
     }
@@ -401,14 +403,12 @@ void vecx_reset(void)
     vectors_draw = vectors_set;
     vectors_erse = vectors_set + VECTOR_CNT;
     fcycles      = FCYCLES_INIT;
-    e6809_read8  = read8;
-    e6809_write8 = write8;
 
     e6809_reset();
 }
 static void via_sstep0(void)
 {
-    unsigned t2shift;
+    uint64_t t2shift;
     if (via_t1on) {
         via_t1c--;
         if ((via_t1c & 0xffff) == 0xffff) {
@@ -535,8 +535,8 @@ static void alg_addline(long x0, long y0, long x1, long y1, unsigned char color)
 static void alg_sstep(void)
 {
     long     sig_dx, sig_dy;
-    unsigned sig_ramp;
-    unsigned sig_blank;
+    uint64_t sig_ramp;
+    uint64_t sig_blank;
     if ((via_acr & 0x10) == 0x10) {
         sig_blank = via_cb2s;
     } else {
@@ -598,7 +598,7 @@ static void alg_sstep(void)
 }
 void vecx_emu(long cycles)
 {
-    unsigned c, icycles;
+    uint64_t c, icycles;
     while (cycles > 0) {
         icycles = e6809_sstep(via_ifr & 0x80, 0);
         for (c = 0; c < icycles; c++) {

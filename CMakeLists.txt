@@ -12,7 +12,7 @@ set(CMAKE_C_FLAGS_RELWITHDEBINFO "-O3 -ffast-math -DNDEBUG -g")
 
 
 
-file(GLOB sourcefiles "src/*.h" "src/*.c")
+file(GLOB sourcefiles "src/*.h" "src/*.cpp")
 add_executable(${PROJECT_NAME} ${sourcefiles})
 
 find_package(OpenGL)
