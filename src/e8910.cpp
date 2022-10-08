@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -30,29 +31,29 @@
 #define AY_PORTA    (14)
 #define AY_PORTB    (15)
 
-typedef int           INT32;
-typedef unsigned int  UINT32;
-typedef char          INT8;
-typedef unsigned char UINT8;
+typedef int      INT32;
+typedef uint64_t UINT32;
+typedef char     INT8;
+typedef uint8_t  UINT8;
 
 extern uint64_t snd_regs[16];
 
 
 struct AY8910
 {
-    int          index;
-    int          ready;
-    uint64_t    *Regs;
-    INT32        lastEnable;
-    INT32        PeriodA, PeriodB, PeriodC, PeriodN, PeriodE;
-    INT32        CountA, CountB, CountC, CountN, CountE;
-    UINT32       VolA, VolB, VolC, VolE;
-    UINT8        EnvelopeA, EnvelopeB, EnvelopeC;
-    UINT8        OutputA, OutputB, OutputC, OutputN;
-    INT8         CountEnv;
-    UINT8        Hold, Alternate, Attack, Holding;
-    INT32        RNG;
-    unsigned int VolTable[32];
+    int       index;
+    int       ready;
+    uint64_t *Regs;
+    INT32     lastEnable;
+    INT32     PeriodA, PeriodB, PeriodC, PeriodN, PeriodE;
+    INT32     CountA, CountB, CountC, CountN, CountE;
+    UINT32    VolA, VolB, VolC, VolE;
+    UINT8     EnvelopeA, EnvelopeB, EnvelopeC;
+    UINT8     OutputA, OutputB, OutputC, OutputN;
+    INT8      CountEnv;
+    UINT8     Hold, Alternate, Attack, Holding;
+    INT32     RNG;
+    uint64_t  VolTable[32];
 } PSG;
 
 
@@ -349,7 +350,7 @@ static void e8910_build_mixer_table()
     double out;
     out = MAX_OUTPUT;
     for (i = 31; i > 0; i--) {
-        PSG.VolTable[i] = (unsigned)(out + 0.5);
+        PSG.VolTable[i] = (uint64_t)(out + 0.5);
         out /= 1.188502227;
     }
     PSG.VolTable[0] = 0;

@@ -6,14 +6,14 @@
 
 extern CPU *cpu;
 
-unsigned char rom[8192];
-unsigned char cart[32768];
-uint64_t      snd_regs[16];
+uint8_t  rom[8192];
+uint8_t  cart[32768];
+uint64_t snd_regs[16];
 
 extern void osint_render(void);
 
 
-static unsigned char ram[1024];
+static uint8_t ram[1024];
 
 
 static uint64_t snd_select;
@@ -59,14 +59,14 @@ static long     alg_dy;
 static long     alg_curr_x;
 static long     alg_curr_y;
 
-static uint64_t      alg_vectoring;
-static long          alg_vector_x0;
-static long          alg_vector_y0;
-static long          alg_vector_x1;
-static long          alg_vector_y1;
-static long          alg_vector_dx;
-static long          alg_vector_dy;
-static unsigned char alg_vector_color;
+static uint64_t alg_vectoring;
+static long     alg_vector_x0;
+static long     alg_vector_y0;
+static long     alg_vector_x1;
+static long     alg_vector_y1;
+static long     alg_vector_dx;
+static long     alg_vector_dy;
+static uint8_t  alg_vector_color;
 
 enum
 {
@@ -154,9 +154,9 @@ static void int_update(void)
         via_ifr &= 0x7f;
     }
 }
-unsigned char _read8(uint64_t address)
+uint8_t _read8(uint64_t address)
 {
-    unsigned char data;
+    uint8_t data;
     if ((address & 0xe000) == 0xe000) {
         data = rom[address & 0x1fff];
     } else if ((address & 0xe000) == 0xc000) {
@@ -166,9 +166,9 @@ unsigned char _read8(uint64_t address)
             switch (address & 0xf) {
                 case 0x0:
                     if (via_acr & 0x80) {
-                        data = (unsigned char)((via_orb & 0x5f) | via_t1pb7 | alg_compare);
+                        data = (uint8_t)((via_orb & 0x5f) | via_t1pb7 | alg_compare);
                     } else {
-                        data = (unsigned char)((via_orb & 0xdf) | alg_compare);
+                        data = (uint8_t)((via_orb & 0xdf) | alg_compare);
                     }
                     break;
                 case 0x1:
@@ -177,19 +177,19 @@ unsigned char _read8(uint64_t address)
                     }
                 case 0xf:
                     if ((via_orb & 0x18) == 0x08) {
-                        data = (unsigned char)snd_regs[snd_select];
+                        data = (uint8_t)snd_regs[snd_select];
                     } else {
-                        data = (unsigned char)via_ora;
+                        data = (uint8_t)via_ora;
                     }
                     break;
                 case 0x2:
-                    data = (unsigned char)via_ddrb;
+                    data = (uint8_t)via_ddrb;
                     break;
                 case 0x3:
-                    data = (unsigned char)via_ddra;
+                    data = (uint8_t)via_ddra;
                     break;
                 case 0x4:
-                    data = (unsigned char)via_t1c;
+                    data = (uint8_t)via_t1c;
                     via_ifr &= 0xbf;
                     via_t1on  = 0;
                     via_t1int = 0;
@@ -197,42 +197,42 @@ unsigned char _read8(uint64_t address)
                     int_update();
                     break;
                 case 0x5:
-                    data = (unsigned char)(via_t1c >> 8);
+                    data = (uint8_t)(via_t1c >> 8);
                     break;
                 case 0x6:
-                    data = (unsigned char)via_t1ll;
+                    data = (uint8_t)via_t1ll;
                     break;
                 case 0x7:
-                    data = (unsigned char)via_t1lh;
+                    data = (uint8_t)via_t1lh;
                     break;
                 case 0x8:
-                    data = (unsigned char)via_t2c;
+                    data = (uint8_t)via_t2c;
                     via_ifr &= 0xdf;
                     via_t2on  = 0;
                     via_t2int = 0;
                     int_update();
                     break;
                 case 0x9:
-                    data = (unsigned char)(via_t2c >> 8);
+                    data = (uint8_t)(via_t2c >> 8);
                     break;
                 case 0xa:
-                    data = (unsigned char)via_sr;
+                    data = (uint8_t)via_sr;
                     via_ifr &= 0xfb;
                     via_srb   = 0;
                     via_srclk = 1;
                     int_update();
                     break;
                 case 0xb:
-                    data = (unsigned char)via_acr;
+                    data = (uint8_t)via_acr;
                     break;
                 case 0xc:
-                    data = (unsigned char)via_pcr;
+                    data = (uint8_t)via_pcr;
                     break;
                 case 0xd:
-                    data = (unsigned char)via_ifr;
+                    data = (uint8_t)via_ifr;
                     break;
                 case 0xe:
-                    data = (unsigned char)(via_ier | 0x80);
+                    data = (uint8_t)(via_ier | 0x80);
                     break;
             }
         }
@@ -243,7 +243,7 @@ unsigned char _read8(uint64_t address)
     }
     return data;
 }
-void _write8(uint64_t address, unsigned char data)
+void _write8(uint64_t address, uint8_t data)
 {
     if ((address & 0xe000) == 0xe000) {
     } else if ((address & 0xe000) == 0xc000) {
@@ -507,14 +507,14 @@ static void via_sstep1(void)
         via_cb2h = 1;
     }
 }
-static void alg_addline(long x0, long y0, long x1, long y1, unsigned char color)
+static void alg_addline(long x0, long y0, long x1, long y1, uint8_t color)
 {
-    unsigned long key;
-    long          index;
-    key = (unsigned long)x0;
-    key = key * 31 + (unsigned long)y0;
-    key = key * 31 + (unsigned long)x1;
-    key = key * 31 + (unsigned long)y1;
+    uint64_t key;
+    long     index;
+    key = (uint64_t)x0;
+    key = key * 31 + (uint64_t)y0;
+    key = key * 31 + (uint64_t)x1;
+    key = key * 31 + (uint64_t)y1;
     key %= VECTOR_HASH;
     index = vector_hash[key];
     if (index >= 0 && index < vector_draw_cnt && x0 == vectors_draw[index].x0 && y0 == vectors_draw[index].y0 &&
@@ -570,13 +570,13 @@ static void alg_sstep(void)
             alg_vector_y1    = alg_curr_y;
             alg_vector_dx    = sig_dx;
             alg_vector_dy    = sig_dy;
-            alg_vector_color = (unsigned char)alg_zsh;
+            alg_vector_color = (uint8_t)alg_zsh;
         }
     } else {
         if (sig_blank == 0) {
             alg_vectoring = 0;
             alg_addline(alg_vector_x0, alg_vector_y0, alg_vector_x1, alg_vector_y1, alg_vector_color);
-        } else if (sig_dx != alg_vector_dx || sig_dy != alg_vector_dy || (unsigned char)alg_zsh != alg_vector_color) {
+        } else if (sig_dx != alg_vector_dx || sig_dy != alg_vector_dy || (uint8_t)alg_zsh != alg_vector_color) {
             alg_addline(alg_vector_x0, alg_vector_y0, alg_vector_x1, alg_vector_y1, alg_vector_color);
             if (alg_curr_x >= 0 && alg_curr_x < ALG_MAX_X && alg_curr_y >= 0 && alg_curr_y < ALG_MAX_Y) {
                 alg_vector_x0    = alg_curr_x;
@@ -585,7 +585,7 @@ static void alg_sstep(void)
                 alg_vector_y1    = alg_curr_y;
                 alg_vector_dx    = sig_dx;
                 alg_vector_dy    = sig_dy;
-                alg_vector_color = (unsigned char)alg_zsh;
+                alg_vector_color = (uint8_t)alg_zsh;
             } else {
                 alg_vectoring = 0;
             }

@@ -68,7 +68,7 @@ uint64_t CPU::read8(uint64_t address)
 }
 void CPU::write8(uint64_t address, uint64_t data)
 {
-    _write8(address & 0xffff, (unsigned char)data);
+    _write8(address & 0xffff, (uint8_t)data);
 }
 uint64_t CPU::read16(uint64_t address)
 {

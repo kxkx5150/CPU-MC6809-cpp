@@ -13,14 +13,14 @@ enum
 
 typedef struct vector_type
 {
-    long          x0, y0;
-    long          x1, y1;
-    unsigned char color;
+    long    x0, y0;
+    long    x1, y1;
+    uint8_t color;
 } vector_t;
 
 
-extern unsigned char rom[8192];
-extern unsigned char cart[32768];
+extern uint8_t rom[8192];
+extern uint8_t cart[32768];
 
 extern uint64_t snd_regs[16];
 extern uint64_t alg_jch0;
@@ -37,7 +37,7 @@ extern vector_t *vectors_erse;
 void vecx_reset(void);
 void vecx_emu(long cycles);
 
-unsigned char _read8(uint64_t address);
-void          _write8(uint64_t address, unsigned char data);
+uint8_t _read8(uint64_t address);
+void    _write8(uint64_t address, uint8_t data);
 
 #endif
