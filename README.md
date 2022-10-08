@@ -15,6 +15,13 @@ sudo apt-get install libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-net
 
 exe/cpp_app games/AGT.BIN
 
+
+
+https://user-images.githubusercontent.com/10168979/194722836-871f9a6c-59fd-4352-ae23-8e00cd763962.mp4
+
+
+
+
 <br><br><br><br><br><br>
 
 vscode extensions
